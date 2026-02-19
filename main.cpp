@@ -9,50 +9,56 @@ struct Unit {
     int y;
 };
 
+static std::vector<Unit> g_units;
+
 /*
-    JS функция:
-    Возвращает массив:
-    [x1, y1, x2, y2, x3, y3 ...]
+    JS читает страницу и кладёт данные в WASM память
 */
-EM_JS(int, get_units_count, (), {
+
+EM_JS(int, js_update_units, (), {
     const win = window;
-    const pole_imported = win.stage?.[win.war_scr];
-    if (!pole_imported || !pole_imported.obj) {
-        Module._units_buffer = [];
+    const pole = win.stage?.[win.war_scr];
+
+    if (!pole || !pole.obj) {
         return 0;
     }
 
-    const units_imported = Object.values(pole_imported.obj);
+    const units = Object.values(pole.obj);
+    const count = units.length;
 
-    const flat = [];
-    for (const u of units_imported) {
-        flat.push(u.x | 0);
-        flat.push(u.y | 0);
+    // получаем указатель на WASM memory
+    const ptr = Module._get_units_buffer_ptr();
+    const mem = new Int32Array(Module.HEAP32.buffer, ptr, count * 2);
+
+    for (let i = 0; i < count; i++) {
+        mem[i*2]   = units[i].x | 0;
+        mem[i*2+1] = units[i].y | 0;
     }
 
-    Module._units_buffer = flat;
-
-    return units_imported.length;
+    return count;
 });
 
-EM_JS(int, get_unit_data, (int index), {
-    return Module._units_buffer[index] | 0;
-});
+int* get_units_buffer_ptr() {
+    return reinterpret_cast<int*>(g_units.data());
+}
 
-std::vector<Unit> getUnitsFromPage() {
+void tick() {
 
-    std::vector<Unit> result;
+    int count = js_update_units();
 
-    int count = get_units_count();
+    g_units.resize(count);
+
+    // данные уже записаны напрямую в память вектора
+    // здесь можно делать свою логику
 
     for (int i = 0; i < count; i++) {
-        Unit u;
-        u.x = get_unit_data(i * 2);
-        u.y = get_unit_data(i * 2 + 1);
-        result.push_back(u);
+        // пример логики
+        g_units[i].x += 0; // placeholder
     }
+}
 
-    return result;
+std::vector<Unit> getUnits() {
+    return g_units;
 }
 
 EMSCRIPTEN_BINDINGS(my_module) {
@@ -63,5 +69,7 @@ EMSCRIPTEN_BINDINGS(my_module) {
 
     register_vector<Unit>("VectorUnit");
 
-    function("getUnitsFromPage", &getUnitsFromPage);
+    function("tick", &tick);
+    function("getUnits", &getUnits);
+    function("_get_units_buffer_ptr", &get_units_buffer_ptr, allow_raw_pointers());
 }

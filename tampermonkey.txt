@@ -1,60 +1,27 @@
 // ==UserScript==
-// @name         HWM WASM Units Reader
+// @name         HWM WASM Engine
 // @namespace    http://tampermonkey.net/
-// @version      3.1
+// @version      2.0
 // @match        *://*.heroeswm.ru/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
 
 (async () => {
-    'use strict';
 
     const baseUrl = 'https://raw.githubusercontent.com/Igres/wasm-test/main/';
 
-    function waitForBattle() {
-        return new Promise(resolve => {
-            const interval = setInterval(() => {
-                if (window.stage && window.war_scr &&
-                    window.stage[window.war_scr]?.obj) {
-                    clearInterval(interval);
-                    resolve();
-                }
-            }, 100);
-        });
-    }
-
-    console.log("Waiting for battle...");
-
-    await waitForBattle();
-
-    console.log("Battle ready ✅");
-
-    const jsText = await fetch(baseUrl + 'main.js')
-        .then(r => r.text());
-
+    const jsText = await fetch(baseUrl + 'main.js').then(r => r.text());
     const createModule = (0, eval)(jsText + "\ncreateModule;");
+    const wasmBinary = await fetch(baseUrl + 'main.wasm').then(r => r.arrayBuffer());
 
-    const wasmBinary = await fetch(baseUrl + 'main.wasm')
-        .then(r => r.arrayBuffer());
-
-    const wasmModule = await createModule({
-        wasmBinary
-    });
+    const Module = await createModule({ wasmBinary });
 
     console.log("WASM loaded ✅");
 
-    const vector = wasmModule.getUnitsFromPage();
-
-    const units = [];
-
-    for (let i = 0; i < vector.size(); i++) {
-        const u = vector.get(i);
-        units.push({ x: u.x, y: u.y });
-    }
-
-    vector.delete();
-
-    console.log("Units from C++:", units);
+    // 30 FPS
+    setInterval(() => {
+        Module.tick();
+    }, 33);
 
 })();
