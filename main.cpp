@@ -12,10 +12,19 @@ struct Unit {
 static std::vector<Unit> g_units;
 
 /*
-    JS читает страницу и кладёт данные в WASM память
+    Возвращаем указатель напрямую (без embind)
 */
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+int* get_units_buffer_ptr() {
+    return reinterpret_cast<int*>(g_units.data());
+}
+
+}
 
 EM_JS(int, js_update_units, (), {
+
     const win = window;
     const pole = win.stage?.[win.war_scr];
 
@@ -26,7 +35,9 @@ EM_JS(int, js_update_units, (), {
     const units = Object.values(pole.obj);
     const count = units.length;
 
-    // получаем указатель на WASM memory
+    // resize vector заранее
+    Module._resize_units(count);
+
     const ptr = Module._get_units_buffer_ptr();
     const mem = new Int32Array(Module.HEAP32.buffer, ptr, count * 2);
 
@@ -38,23 +49,17 @@ EM_JS(int, js_update_units, (), {
     return count;
 });
 
-int* get_units_buffer_ptr() {
-    return reinterpret_cast<int*>(g_units.data());
+extern "C" {
+
+EMSCRIPTEN_KEEPALIVE
+void resize_units(int count) {
+    g_units.resize(count);
+}
+
 }
 
 void tick() {
-
-    int count = js_update_units();
-
-    g_units.resize(count);
-
-    // данные уже записаны напрямую в память вектора
-    // здесь можно делать свою логику
-
-    for (int i = 0; i < count; i++) {
-        // пример логики
-        g_units[i].x += 0; // placeholder
-    }
+    js_update_units();
 }
 
 std::vector<Unit> getUnits() {
@@ -71,5 +76,4 @@ EMSCRIPTEN_BINDINGS(my_module) {
 
     function("tick", &tick);
     function("getUnits", &getUnits);
-    function("_get_units_buffer_ptr", &get_units_buffer_ptr, allow_raw_pointers());
 }
