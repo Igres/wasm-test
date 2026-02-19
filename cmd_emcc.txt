@@ -1,0 +1,5 @@
+emcc pathfinding.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME=createModule -s ALLOW_MEMORY_GROWTH=1 -s NO_EXIT_RUNTIME=1 -lembind -o pathfinding.js
+
+emcc main.cpp -O3 -s WASM=1 -s MODULARIZE=1 -s EXPORT_NAME=createModule -s ALLOW_MEMORY_GROWTH=1 -s NO_EXIT_RUNTIME=1 -lembind -o main.js
+
+const baseUrl = 'https://raw.githubusercontent.com/Igres/wasm-test/main/';
